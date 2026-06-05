@@ -12,6 +12,14 @@ type Message = {
   text: string;
 };
 
+type AudienceSource = {
+  source: Source;
+  viewers: number;
+  messagesPerMinute: number;
+  growth: string;
+  topChatters: string[];
+};
+
 const incomingMessages: Message[] = [
   { source: "Twitch", user: "banksfan22", text: "Banks stream with one native chat is the move" },
   { source: "X", user: "viralwatch", text: "Market Bubble Lobby actually solves split audiences 🔥" },
@@ -27,14 +35,31 @@ const incomingMessages: Message[] = [
   { source: "Kick", user: "replaygang", text: "This feels like the future of creator dashboards" },
 ];
 
-const viewerBreakdown = {
-  Twitch: 4812,
-  Kick: 2101,
-  X: 1149,
-};
+const audienceSources: AudienceSource[] = [
+  {
+    source: "Twitch",
+    viewers: 4812,
+    messagesPerMinute: 132,
+    growth: "+4.2%",
+    topChatters: ["@banksfan22", "@modking", "@clipboss"],
+  },
+  {
+    source: "Kick",
+    viewers: 2101,
+    messagesPerMinute: 54,
+    growth: "+8.7%",
+    topChatters: ["@greenroom", "@marketmax", "@user91"],
+  },
+  {
+    source: "X",
+    viewers: 1149,
+    messagesPerMinute: 27,
+    growth: "+12.4%",
+    topChatters: ["@viralwatch", "@trendwatch", "@cliphunter"],
+  },
+];
 
-const totalViewers =
-  viewerBreakdown.Twitch + viewerBreakdown.Kick + viewerBreakdown.X;
+const totalViewers = audienceSources.reduce((sum, item) => sum + item.viewers, 0);
 
 const streamUrls: Record<StreamPlatform, string | null> = {
   Twitch: "https://player.twitch.tv/?channel=fazebanks&parent=localhost&muted=true",
@@ -49,6 +74,10 @@ export default function Home() {
   const [selectedSource, setSelectedSource] = useState<Source | "All">("All");
   const [selectedStream, setSelectedStream] = useState<StreamPlatform>("Twitch");
   const [mode, setMode] = useState<Mode>("Creator Dashboard");
+  const [selectedAudience, setSelectedAudience] = useState<Source>("Twitch");
+
+  const selectedAudienceData =
+    audienceSources.find((item) => item.source === selectedAudience) || audienceSources[0];
 
   const visibleMessages =
     selectedSource === "All"
@@ -188,11 +217,98 @@ export default function Home() {
             )}
           </div>
 
-          <section className="grid gap-4 border-y border-white/10 p-6 xl:grid-cols-4">
-            <Stat label="Combined Viewers" value={totalViewers.toLocaleString()} />
-            <Stat label="Twitch" value={viewerBreakdown.Twitch.toLocaleString()} />
-            <Stat label="Kick" value={viewerBreakdown.Kick.toLocaleString()} />
-            <Stat label="X" value={viewerBreakdown.X.toLocaleString()} />
+          <section className="border-y border-white/10 p-6">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-white/35">
+                  Live Audience Intelligence
+                </p>
+                <h2 className="mt-1 text-3xl font-black">
+                  {totalViewers.toLocaleString()} Total Viewers
+                </h2>
+              </div>
+              <p className="max-w-xl text-sm leading-6 text-white/45">
+                Click a platform to see where viewers are coming from, how active they are,
+                and who is driving the conversation.
+              </p>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-3">
+              {audienceSources.map((item) => (
+                <button
+                  key={item.source}
+                  onClick={() => setSelectedAudience(item.source)}
+                  className={`rounded-3xl border p-5 text-left transition hover:border-white/30 ${
+                    selectedAudience === item.source
+                      ? "border-white bg-white text-black"
+                      : "border-white/10 bg-white/[0.03] text-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-black ${
+                        selectedAudience === item.source
+                          ? "border-black/10 bg-black/10 text-black"
+                          : platformStyle(item.source)
+                      }`}
+                    >
+                      {item.source}
+                    </span>
+                    <span className={selectedAudience === item.source ? "text-black/50" : "text-white/40"}>
+                      {item.growth}
+                    </span>
+                  </div>
+
+                  <p className="mt-5 text-4xl font-black">{item.viewers.toLocaleString()}</p>
+                  <p className={selectedAudience === item.source ? "text-black/55" : "text-white/45"}>
+                    viewers
+                  </p>
+
+                  <div className="mt-4 rounded-2xl border border-current/10 p-4">
+                    <p className="text-sm opacity-70">Messages / min</p>
+                    <p className="mt-1 text-2xl font-black">{item.messagesPerMinute}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+                    Selected Source
+                  </p>
+                  <h3 className="mt-1 text-3xl font-black">{selectedAudienceData.source} Details</h3>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/30 px-5 py-4">
+                  <p className="text-sm text-white/40">Growth</p>
+                  <p className="text-2xl font-black text-green-300">{selectedAudienceData.growth}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <MiniMetric label="Viewers" value={selectedAudienceData.viewers.toLocaleString()} />
+                <MiniMetric label="Messages/min" value={String(selectedAudienceData.messagesPerMinute)} />
+                <MiniMetric label="Source" value={selectedAudienceData.source} />
+              </div>
+
+              <div className="mt-5">
+                <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-white/35">
+                  Top Chatters
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedAudienceData.topChatters.map((chatter) => (
+                    <span
+                      key={chatter}
+                      className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-bold text-white/70"
+                    >
+                      {chatter}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
           </section>
 
           <section className="grid gap-6 p-6 xl:grid-cols-[1fr_1fr_1fr_1fr]">
@@ -218,14 +334,14 @@ export default function Home() {
               <p className="text-2xl font-black">{mode}</p>
               <p className="mt-3 text-sm leading-6 text-white/55">
                 {mode === "Creator Dashboard"
-                  ? "Monitor the entire audience, combined viewers, viral spikes, and source-labeled chat from one control room."
+                  ? "Monitor combined viewers, viral spikes, source labels, and top chatters from one control room."
                   : "Watch the stream and participate in the combined Market Bubble chat without opening every platform."}
               </p>
             </Panel>
           </section>
         </div>
 
-        <aside className="border-l border-white/10 bg-[#08080d]">
+        <aside className="sticky top-0 flex h-screen flex-col border-l border-white/10 bg-[#08080d]">
           <div className="border-b border-white/10 p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-white/35">
               Native Market Bubble Chat
@@ -264,7 +380,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="h-[calc(100vh-290px)] space-y-3 overflow-y-auto p-5">
+          <div className="flex-1 space-y-3 overflow-y-auto p-5">
             {visibleMessages.map((message, index) => (
               <div
                 key={`${message.user}-${message.text}-${index}`}
@@ -314,11 +430,11 @@ function platformStyle(source: Source) {
   return "border-white/20 bg-white/10 text-white";
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
       <p className="text-sm text-white/40">{label}</p>
-      <p className="mt-1 text-3xl font-black">{value}</p>
+      <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
   );
 }
