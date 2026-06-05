@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Source = "Twitch" | "Kick" | "X" | "YouTube";
+type ChatSource = Source | "All Platforms";
 type StreamPlatform = "Twitch" | "Kick" | "X" | "YouTube";
 type Mode = "Creator Dashboard" | "Viewer Mode";
 
@@ -16,7 +17,7 @@ type ChatFeedItem =
   | {
       type: "message";
       id: string;
-      source: Source;
+      source: ChatSource;
       user: string;
       text: string;
     }
@@ -137,6 +138,7 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("Creator Dashboard");
   const [selectedAudience, setSelectedAudience] = useState<Source>("Twitch");
   const [clipCooldown, setClipCooldown] = useState(25);
+  const [chatText, setChatText] = useState("");
 
   const nextIndexRef = useRef(8);
   const momentCountRef = useRef(1);
@@ -149,7 +151,7 @@ export default function Home() {
       feedItems
         .filter((item): item is Extract<ChatFeedItem, { type: "message" }> => item.type === "message")
         .map((item) => ({
-          source: item.source,
+          source: item.source === "All Platforms" ? "Twitch" : item.source,
           user: item.user,
           text: item.text,
         })),
@@ -161,7 +163,7 @@ export default function Home() {
       ? feedItems
       : feedItems.filter((item) => {
           if (item.type === "message") {
-            return item.source === selectedSource;
+            return item.source === selectedSource || item.source === "All Platforms";
           }
 
           return item.sources.includes(selectedSource);
@@ -184,6 +186,27 @@ export default function Home() {
   );
 
   const momentConfidence = Math.min(99, 64 + clipMentions * 8 + hypeMentions * 4);
+
+  function handleSendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedMessage = chatText.trim();
+
+    if (!trimmedMessage) {
+      return;
+    }
+
+    const sentMessage: ChatFeedItem = {
+      type: "message",
+      id: `sent-message-${Date.now()}`,
+      source: "All Platforms",
+      user: "you",
+      text: trimmedMessage,
+    };
+
+    setFeedItems((current) => [sentMessage, ...current].slice(0, 28));
+    setChatText("");
+  }
 
   useEffect(() => {
     const messageTimer = setInterval(() => {
@@ -241,7 +264,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#050508] text-white">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+      <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
         <div>
           <p className="text-xs uppercase tracking-[0.4em] text-white/35">
             MarketBubble.com Native Experience
@@ -271,9 +294,9 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="grid min-h-[calc(100vh-73px)] lg:grid-cols-[1fr_440px]">
+      <section className="grid min-h-[calc(100vh-65px)] lg:grid-cols-[1fr_420px]">
         <div className="flex flex-col">
-          <div className="border-b border-white/10 p-4">
+          <div className="border-b border-white/10 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-white/40">Now Watching</p>
@@ -298,7 +321,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative flex aspect-video min-h-[520px] items-center justify-center overflow-hidden bg-black">
+          <div className="relative flex h-[390px] items-center justify-center overflow-hidden bg-black lg:h-[420px] xl:h-[445px]">
             {streamUrls[selectedStream] ? (
               <iframe
                 key={selectedStream}
@@ -311,7 +334,7 @@ export default function Home() {
               <WaitingStream platform={selectedStream} />
             )}
 
-            <div className="pointer-events-none absolute left-6 top-6 flex items-center gap-3">
+            <div className="pointer-events-none absolute left-5 top-5 flex items-center gap-3">
               <div className="rounded-full bg-red-600 px-4 py-2 text-xs font-black">
                 LIVE STREAM
               </div>
@@ -323,8 +346,8 @@ export default function Home() {
 
           {mode === "Viewer Mode" ? (
             <>
-              <section className="border-b border-white/10 p-5">
-                <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
+              <section className="border-b border-white/10 p-4">
+                <div className="grid gap-4 xl:grid-cols-[240px_1fr]">
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-white/35">
                       Watching Together
@@ -348,7 +371,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="grid gap-5 p-5 xl:grid-cols-3">
+              <section className="grid gap-4 p-4 xl:grid-cols-3">
                 <Panel title="Live Sources">
                   <SourceStatus label="Twitch" status="Live" viewers="4,812" />
                   <SourceStatus label="Kick" status="Live" viewers="2,101" />
@@ -378,8 +401,8 @@ export default function Home() {
             </>
           ) : (
             <>
-              <section className="border-b border-white/10 p-6">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+              <section className="border-b border-white/10 p-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.35em] text-white/35">
                       Live Audience Intelligence
@@ -399,7 +422,7 @@ export default function Home() {
                     <button
                       key={item.source}
                       onClick={() => setSelectedAudience(item.source)}
-                      className={`rounded-3xl border p-5 text-left transition hover:border-white/30 ${
+                      className={`rounded-3xl border p-4 text-left transition hover:border-white/30 ${
                         selectedAudience === item.source
                           ? "border-white bg-white text-black"
                           : "border-white/10 bg-white/[0.03] text-white"
@@ -430,12 +453,12 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <p className="mt-5 text-4xl font-black">{item.viewers.toLocaleString()}</p>
+                      <p className="mt-4 text-4xl font-black">{item.viewers.toLocaleString()}</p>
                       <p className={selectedAudience === item.source ? "text-black/55" : "text-white/45"}>
                         viewers
                       </p>
 
-                      <div className="mt-4 rounded-2xl border border-current/10 p-4">
+                      <div className="mt-4 rounded-2xl border border-current/10 p-3">
                         <p className="text-sm opacity-70">Messages / min</p>
                         <p className="mt-1 text-2xl font-black">{item.messagesPerMinute}</p>
                       </div>
@@ -443,7 +466,7 @@ export default function Home() {
                   ))}
                 </div>
 
-                <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="mt-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="text-xs uppercase tracking-[0.3em] text-white/35">
@@ -458,13 +481,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  <div className="mt-4 grid gap-4 md:grid-cols-3">
                     <MiniMetric label="Viewers" value={selectedAudienceData.viewers.toLocaleString()} />
                     <MiniMetric label="Messages/min" value={String(selectedAudienceData.messagesPerMinute)} />
                     <MiniMetric label="Source" value={selectedAudienceData.source} />
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-white/35">
                       Top Chatters
                     </p>
@@ -482,7 +505,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="grid gap-6 p-6 xl:grid-cols-[1fr_1fr_1fr_1fr]">
+              <section className="grid gap-4 p-4 xl:grid-cols-[1fr_1fr_1fr_1fr]">
                 <Panel title="Audience Pulse">
                   <Pulse label="Twitch" value="60%" width="60%" color="bg-purple-500" />
                   <Pulse label="Kick" value="26%" width="26%" color="bg-green-500" />
@@ -532,7 +555,7 @@ export default function Home() {
         </div>
 
         <aside className="sticky top-0 flex h-screen flex-col border-l border-white/10 bg-[#08080d]">
-          <div className="border-b border-white/10 p-5">
+          <div className="border-b border-white/10 p-4">
             <p className="text-xs uppercase tracking-[0.3em] text-white/35">
               {mode === "Viewer Mode" ? "Live Viewer Chat" : "Native Market Bubble Chat"}
             </p>
@@ -558,9 +581,38 @@ export default function Home() {
                 </button>
               ))}
             </div>
+
+            <form onSubmit={handleSendMessage} className="mt-4">
+              <div className="rounded-3xl border border-white/10 bg-black/35 p-3">
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-white/35">
+                  Send to Twitch + Kick + X + YouTube
+                </p>
+
+                <div className="flex gap-2">
+                  <input
+                    value={chatText}
+                    onChange={(event) => setChatText(event.target.value)}
+                    placeholder={
+                      mode === "Viewer Mode"
+                        ? "Chat with the whole room..."
+                        : "Broadcast a message to all platforms..."
+                    }
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/30"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!chatText.trim()}
+                    className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/30"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-5">
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
             {visibleFeedItems.map((item) => {
               if (item.type === "moment") {
                 return (
@@ -600,7 +652,7 @@ export default function Home() {
                         item.source
                       )}`}
                     >
-                      {item.source}
+                      {item.source === "All Platforms" ? "All" : item.source}
                     </span>
                     <span className="text-sm font-semibold text-white/45">
                       @{item.user}
@@ -633,7 +685,8 @@ function WaitingStream({ platform }: { platform: StreamPlatform }) {
   );
 }
 
-function platformStyle(source: Source) {
+function platformStyle(source: ChatSource) {
+  if (source === "All Platforms") return "border-blue-400/40 bg-blue-400/10 text-blue-200";
   if (source === "Kick") return "border-green-400/40 bg-green-400/10 text-green-300";
   if (source === "Twitch") return "border-purple-400/40 bg-purple-400/10 text-purple-300";
   if (source === "YouTube") return "border-red-400/40 bg-red-400/10 text-red-300";
