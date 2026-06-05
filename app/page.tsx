@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-type Source = "Twitch" | "Kick" | "X";
+type Source = "Twitch" | "Kick" | "X" | "YouTube";
 type StreamPlatform = "Twitch" | "Kick" | "X" | "YouTube";
 type Mode = "Creator Dashboard" | "Viewer Mode";
 
@@ -12,12 +12,31 @@ type Message = {
   text: string;
 };
 
+type ChatFeedItem =
+  | {
+      type: "message";
+      id: string;
+      source: Source;
+      user: string;
+      text: string;
+    }
+  | {
+      type: "moment";
+      id: string;
+      phrase: string;
+      mentions: number;
+      confidence: number;
+      sources: Source[];
+      timestamp: string;
+    };
+
 type AudienceSource = {
   source: Source;
   viewers: number;
   messagesPerMinute: number;
   growth: string;
   topChatters: string[];
+  status: "Live" | "Waiting";
 };
 
 const incomingMessages: Message[] = [
@@ -33,6 +52,7 @@ const incomingMessages: Message[] = [
   { source: "Twitch", user: "modking", text: "specific labels make this easy to moderate" },
   { source: "X", user: "cliphunter", text: "CLIP IT. This moment is going viral." },
   { source: "Kick", user: "replaygang", text: "This feels like the future of creator dashboards" },
+  { source: "YouTube", user: "ytwaiting", text: "YouTube source ready when the official stream connects" },
 ];
 
 const audienceSources: AudienceSource[] = [
@@ -42,6 +62,7 @@ const audienceSources: AudienceSource[] = [
     messagesPerMinute: 132,
     growth: "+4.2%",
     topChatters: ["@banksfan22", "@modking", "@clipboss"],
+    status: "Live",
   },
   {
     source: "Kick",
@@ -49,6 +70,7 @@ const audienceSources: AudienceSource[] = [
     messagesPerMinute: 54,
     growth: "+8.7%",
     topChatters: ["@greenroom", "@marketmax", "@user91"],
+    status: "Live",
   },
   {
     source: "X",
@@ -56,6 +78,15 @@ const audienceSources: AudienceSource[] = [
     messagesPerMinute: 27,
     growth: "+12.4%",
     topChatters: ["@viralwatch", "@trendwatch", "@cliphunter"],
+    status: "Live",
+  },
+  {
+    source: "YouTube",
+    viewers: 0,
+    messagesPerMinute: 0,
+    growth: "Waiting",
+    topChatters: ["No YouTube stream connected yet"],
+    status: "Waiting",
   },
 ];
 
@@ -68,51 +99,145 @@ const streamUrls: Record<StreamPlatform, string | null> = {
   YouTube: null,
 };
 
+function createMessageItem(message: Message, index: number): ChatFeedItem {
+  return {
+    type: "message",
+    id: `message-${index}-${message.source}-${message.user}`,
+    source: message.source,
+    user: message.user,
+    text: message.text,
+  };
+}
+
+function createMomentItem(id: string, mentions: number, confidence: number): ChatFeedItem {
+  return {
+    type: "moment",
+    id,
+    phrase: "CLIP IT",
+    mentions,
+    confidence,
+    sources: ["Twitch", "Kick", "X"],
+    timestamp: "now",
+  };
+}
+
+function countKeyword(messages: Message[], keyword: string) {
+  return messages.filter((message) => message.text.toLowerCase().includes(keyword)).length;
+}
+
+const initialFeedItems: ChatFeedItem[] = [
+  createMomentItem("moment-initial-clip", 24, 92),
+  ...incomingMessages.slice(0, 8).map((message, index) => createMessageItem(message, index)),
+];
+
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>(incomingMessages.slice(0, 8));
-  const [nextIndex, setNextIndex] = useState(8);
+  const [feedItems, setFeedItems] = useState<ChatFeedItem[]>(initialFeedItems);
   const [selectedSource, setSelectedSource] = useState<Source | "All">("All");
   const [selectedStream, setSelectedStream] = useState<StreamPlatform>("Twitch");
   const [mode, setMode] = useState<Mode>("Creator Dashboard");
   const [selectedAudience, setSelectedAudience] = useState<Source>("Twitch");
+  const [clipCooldown, setClipCooldown] = useState(25);
+
+  const nextIndexRef = useRef(8);
+  const momentCountRef = useRef(1);
 
   const selectedAudienceData =
     audienceSources.find((item) => item.source === selectedAudience) || audienceSources[0];
 
-  const visibleMessages =
-    selectedSource === "All"
-      ? messages
-      : messages.filter((message) => message.source === selectedSource);
-
-  const clipMentions = useMemo(
-    () => messages.filter((message) => message.text.toLowerCase().includes("clip")).length,
-    [messages]
+  const messages = useMemo(
+    () =>
+      feedItems
+        .filter((item): item is Extract<ChatFeedItem, { type: "message" }> => item.type === "message")
+        .map((item) => ({
+          source: item.source,
+          user: item.user,
+          text: item.text,
+        })),
+    [feedItems]
   );
+
+  const visibleFeedItems =
+    selectedSource === "All"
+      ? feedItems
+      : feedItems.filter((item) => {
+          if (item.type === "message") {
+            return item.source === selectedSource;
+          }
+
+          return item.sources.includes(selectedSource);
+        });
+
+  const clipMentions = useMemo(() => countKeyword(messages, "clip"), [messages]);
 
   const hypeMentions = useMemo(
     () =>
       messages.filter((message) => {
         const text = message.text.toLowerCase();
-        return text.includes("no way") || text.includes("viral") || text.includes("huge") || text.includes("crazy");
+        return (
+          text.includes("no way") ||
+          text.includes("viral") ||
+          text.includes("huge") ||
+          text.includes("crazy")
+        );
       }).length,
     [messages]
   );
 
   const momentConfidence = Math.min(99, 64 + clipMentions * 8 + hypeMentions * 4);
-  const showViralAlert = clipMentions >= 2 || hypeMentions >= 3;
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMessages((current) => {
-        const nextMessage = incomingMessages[nextIndex % incomingMessages.length];
-        return [nextMessage, ...current].slice(0, 18);
+    const messageTimer = setInterval(() => {
+      const index = nextIndexRef.current;
+      const nextMessage = incomingMessages[index % incomingMessages.length];
+      const nextMessageItem = createMessageItem(nextMessage, index);
+
+      setFeedItems((current) => {
+        return [nextMessageItem, ...current].slice(0, 28);
       });
 
-      setNextIndex((current) => current + 1);
+      nextIndexRef.current = index + 1;
     }, 1200);
 
-    return () => clearInterval(timer);
-  }, [nextIndex]);
+    return () => clearInterval(messageTimer);
+  }, []);
+
+  useEffect(() => {
+    const momentTimer = setInterval(() => {
+      momentCountRef.current += 1;
+
+      const newMoment = createMomentItem(
+        `moment-clip-${Date.now()}`,
+        18 + momentCountRef.current * 6,
+        Math.min(99, 88 + momentCountRef.current)
+      );
+
+      setFeedItems((current) => {
+        const recentDuplicate = current
+          .slice(0, 5)
+          .some((item) => item.type === "moment" && item.phrase === "CLIP IT");
+
+        if (recentDuplicate) {
+          return current;
+        }
+
+        return [newMoment, ...current].slice(0, 28);
+      });
+
+      setClipCooldown(25);
+    }, 25000);
+
+    return () => clearInterval(momentTimer);
+  }, []);
+
+  useEffect(() => {
+    if (clipCooldown <= 0) return;
+
+    const cooldownTimer = setTimeout(() => {
+      setClipCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => clearTimeout(cooldownTimer);
+  }, [clipCooldown]);
 
   return (
     <main className="min-h-screen bg-[#050508] text-white">
@@ -194,177 +319,231 @@ export default function Home() {
                 {totalViewers.toLocaleString()} combined viewers
               </div>
             </div>
-
-            {showViralAlert && (
-              <div className="absolute bottom-6 left-6 right-6 rounded-3xl border border-orange-400/40 bg-orange-500/20 p-5 shadow-2xl backdrop-blur-md">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.3em] text-orange-200">
-                      🔥 Viral Moment Detected
-                    </p>
-                    <h3 className="mt-2 text-3xl font-black">“CLIP IT” is spiking</h3>
-                    <p className="mt-1 text-sm text-orange-100/70">
-                      {clipMentions * 6} mentions across Twitch, Kick, and X in the last 30 seconds.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-orange-300/30 bg-black/35 px-5 py-4 text-center">
-                    <p className="text-sm text-orange-100/60">Confidence</p>
-                    <p className="text-3xl font-black">{momentConfidence}%</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
-          <section className="border-y border-white/10 p-6">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-white/35">
-                  Live Audience Intelligence
-                </p>
-                <h2 className="mt-1 text-3xl font-black">
-                  {totalViewers.toLocaleString()} Total Viewers
-                </h2>
-              </div>
-              <p className="max-w-xl text-sm leading-6 text-white/45">
-                Click a platform to see where viewers are coming from, how active they are,
-                and who is driving the conversation.
-              </p>
-            </div>
+          {mode === "Viewer Mode" ? (
+            <>
+              <section className="border-b border-white/10 p-6">
+                <div className="grid gap-4 xl:grid-cols-3">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+                      Watching Together
+                    </p>
+                    <h2 className="mt-3 text-5xl font-black">
+                      {totalViewers.toLocaleString()}
+                    </h2>
+                    <p className="mt-2 text-white/45">combined viewers live right now</p>
+                  </div>
 
-            <div className="grid gap-4 xl:grid-cols-3">
-              {audienceSources.map((item) => (
-                <button
-                  key={item.source}
-                  onClick={() => setSelectedAudience(item.source)}
-                  className={`rounded-3xl border p-5 text-left transition hover:border-white/30 ${
-                    selectedAudience === item.source
-                      ? "border-white bg-white text-black"
-                      : "border-white/10 bg-white/[0.03] text-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-black ${
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 xl:col-span-2">
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+                      Viewer Mode
+                    </p>
+                    <h2 className="mt-3 text-3xl font-black">One stream. One chat. Every platform.</h2>
+                    <p className="mt-3 text-sm leading-6 text-white/50">
+                      Viewer Mode removes the heavy creator analytics and focuses on the watch experience:
+                      stream player, combined audience count, and the native Market Bubble chat.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grid gap-6 p-6 xl:grid-cols-3">
+                <Panel title="Live Sources">
+                  <SourceStatus label="Twitch" status="Live" viewers="4,812" />
+                  <SourceStatus label="Kick" status="Live" viewers="2,101" />
+                  <SourceStatus label="X" status="Live" viewers="1,149" />
+                  <SourceStatus label="YouTube" status="Waiting" viewers="0" />
+                </Panel>
+
+                <Panel title="🔥 Shared Moments">
+                  <Timeline
+                    time="Now"
+                    title="CLIP IT spike"
+                    subtitle={`${clipMentions * 6} combined mentions`}
+                  />
+                  <Timeline
+                    time="Live"
+                    title="Viewer surge"
+                    subtitle="+312 viewers joined the room"
+                  />
+                </Panel>
+
+                <Panel title="Join The Room">
+                  <Action title="Open Native Chat" subtitle="Chat with viewers across every source" />
+                  <Action title="Follow Moment" subtitle="Track the current viral topic" />
+                  <Action title="Switch Source" subtitle="Change stream source above" />
+                </Panel>
+              </section>
+            </>
+          ) : (
+            <>
+              <section className="border-b border-white/10 p-6">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.35em] text-white/35">
+                      Live Audience Intelligence
+                    </p>
+                    <h2 className="mt-1 text-3xl font-black">
+                      {totalViewers.toLocaleString()} Total Viewers
+                    </h2>
+                  </div>
+                  <p className="max-w-xl text-sm leading-6 text-white/45">
+                    Click a platform to see where viewers are coming from, how active they are,
+                    and who is driving the conversation.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-4">
+                  {audienceSources.map((item) => (
+                    <button
+                      key={item.source}
+                      onClick={() => setSelectedAudience(item.source)}
+                      className={`rounded-3xl border p-5 text-left transition hover:border-white/30 ${
                         selectedAudience === item.source
-                          ? "border-black/10 bg-black/10 text-black"
-                          : platformStyle(item.source)
+                          ? "border-white bg-white text-black"
+                          : "border-white/10 bg-white/[0.03] text-white"
                       }`}
                     >
-                      {item.source}
-                    </span>
-                    <span className={selectedAudience === item.source ? "text-black/50" : "text-white/40"}>
-                      {item.growth}
-                    </span>
-                  </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-black ${
+                            selectedAudience === item.source
+                              ? "border-black/10 bg-black/10 text-black"
+                              : platformStyle(item.source)
+                          }`}
+                        >
+                          {item.source}
+                        </span>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            item.status === "Live"
+                              ? selectedAudience === item.source
+                                ? "bg-green-500/20 text-green-700"
+                                : "bg-green-400/10 text-green-300"
+                              : selectedAudience === item.source
+                              ? "bg-black/10 text-black/50"
+                              : "bg-white/10 text-white/40"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
 
-                  <p className="mt-5 text-4xl font-black">{item.viewers.toLocaleString()}</p>
-                  <p className={selectedAudience === item.source ? "text-black/55" : "text-white/45"}>
-                    viewers
-                  </p>
+                      <p className="mt-5 text-4xl font-black">{item.viewers.toLocaleString()}</p>
+                      <p className={selectedAudience === item.source ? "text-black/55" : "text-white/45"}>
+                        viewers
+                      </p>
 
-                  <div className="mt-4 rounded-2xl border border-current/10 p-4">
-                    <p className="text-sm opacity-70">Messages / min</p>
-                    <p className="mt-1 text-2xl font-black">{item.messagesPerMinute}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-white/35">
-                    Selected Source
-                  </p>
-                  <h3 className="mt-1 text-3xl font-black">{selectedAudienceData.source} Details</h3>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/30 px-5 py-4">
-                  <p className="text-sm text-white/40">Growth</p>
-                  <p className="text-2xl font-black text-green-300">{selectedAudienceData.growth}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <MiniMetric label="Viewers" value={selectedAudienceData.viewers.toLocaleString()} />
-                <MiniMetric label="Messages/min" value={String(selectedAudienceData.messagesPerMinute)} />
-                <MiniMetric label="Source" value={selectedAudienceData.source} />
-              </div>
-
-              <div className="mt-5">
-                <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-white/35">
-                  Top Chatters
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedAudienceData.topChatters.map((chatter) => (
-                    <span
-                      key={chatter}
-                      className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-bold text-white/70"
-                    >
-                      {chatter}
-                    </span>
+                      <div className="mt-4 rounded-2xl border border-current/10 p-4">
+                        <p className="text-sm opacity-70">Messages / min</p>
+                        <p className="mt-1 text-2xl font-black">{item.messagesPerMinute}</p>
+                      </div>
+                    </button>
                   ))}
                 </div>
-              </div>
-            </div>
-          </section>
 
-          <section className="grid gap-6 p-6 xl:grid-cols-[1fr_1fr_1fr_1fr]">
-            <Panel title="Audience Pulse">
-              <Pulse label="Twitch" value="58%" width="58%" color="bg-purple-500" />
-              <Pulse label="Kick" value="34%" width="34%" color="bg-green-500" />
-              <Pulse label="X" value="8%" width="8%" color="bg-white" />
-            </Panel>
+                <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+                        Selected Source
+                      </p>
+                      <h3 className="mt-1 text-3xl font-black">{selectedAudienceData.source} Details</h3>
+                    </div>
 
-            <Panel title="🔥 AI Moment Timeline">
-              <Timeline time="12:04" title="CLIP IT spike" subtitle={`${clipMentions * 6} mentions`} />
-              <Timeline time="12:06" title="NO WAY surge" subtitle={`${hypeMentions * 5} reactions`} />
-              <Timeline time="12:09" title="Viewer surge" subtitle="+312 viewers" />
-            </Panel>
+                    <div className="rounded-2xl border border-white/10 bg-black/30 px-5 py-4">
+                      <p className="text-sm text-white/40">Growth</p>
+                      <p className="text-2xl font-black text-green-300">{selectedAudienceData.growth}</p>
+                    </div>
+                  </div>
 
-            <Panel title="Creator Actions">
-              <Action title="Generate Clip" subtitle="Create highlight from last 30 sec" />
-              <Action title="Create Poll" subtitle="Ask Twitch, Kick, and X at once" />
-              <Action title="Pin Topic" subtitle="Banks moment is trending" />
-            </Panel>
+                  <div className="mt-5 grid gap-4 md:grid-cols-3">
+                    <MiniMetric label="Viewers" value={selectedAudienceData.viewers.toLocaleString()} />
+                    <MiniMetric label="Messages/min" value={String(selectedAudienceData.messagesPerMinute)} />
+                    <MiniMetric label="Source" value={selectedAudienceData.source} />
+                  </div>
 
-            <Panel title="Active Mode">
-              <p className="text-2xl font-black">{mode}</p>
-              <p className="mt-3 text-sm leading-6 text-white/55">
-                {mode === "Creator Dashboard"
-                  ? "Monitor combined viewers, viral spikes, source labels, and top chatters from one control room."
-                  : "Watch the stream and participate in the combined Market Bubble chat without opening every platform."}
-              </p>
-            </Panel>
-          </section>
+                  <div className="mt-5">
+                    <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-white/35">
+                      Top Chatters
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedAudienceData.topChatters.map((chatter) => (
+                        <span
+                          key={chatter}
+                          className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-bold text-white/70"
+                        >
+                          {chatter}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grid gap-6 p-6 xl:grid-cols-[1fr_1fr_1fr_1fr]">
+                <Panel title="Audience Pulse">
+                  <Pulse label="Twitch" value="60%" width="60%" color="bg-purple-500" />
+                  <Pulse label="Kick" value="26%" width="26%" color="bg-green-500" />
+                  <Pulse label="X" value="14%" width="14%" color="bg-white" />
+                  <Pulse label="YouTube" value="0%" width="0%" color="bg-red-500" />
+                </Panel>
+
+                <Panel title="🔥 AI Moment Timeline">
+                  <Timeline
+                    time="12:04"
+                    title="CLIP IT spike"
+                    subtitle={`${clipMentions * 6} mentions • ${momentConfidence}% confidence`}
+                  />
+                  <Timeline
+                    time="12:06"
+                    title="NO WAY surge"
+                    subtitle={`${hypeMentions * 5} reactions`}
+                  />
+                  <Timeline
+                    time="12:09"
+                    title="Viewer surge"
+                    subtitle="+312 viewers"
+                  />
+                  <Timeline
+                    time="12:11"
+                    title="Clip cooldown"
+                    subtitle={clipCooldown > 0 ? `Next auto-clip in ${clipCooldown}s` : "Ready for next moment"}
+                  />
+                </Panel>
+
+                <Panel title="Creator Actions">
+                  <Action title="Generate Clip" subtitle="Create highlight from last 30 sec" />
+                  <Action title="Create Poll" subtitle="Ask Twitch, Kick, and X at once" />
+                  <Action title="Pin Topic" subtitle="Banks moment is trending" />
+                </Panel>
+
+                <Panel title="Active Mode">
+                  <p className="text-2xl font-black">{mode}</p>
+                  <p className="mt-3 text-sm leading-6 text-white/55">
+                    Monitor combined viewers, viral spikes, source labels, and top chatters from one control room.
+                  </p>
+                </Panel>
+              </section>
+            </>
+          )}
         </div>
 
         <aside className="sticky top-0 flex h-screen flex-col border-l border-white/10 bg-[#08080d]">
           <div className="border-b border-white/10 p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-white/35">
-              Native Market Bubble Chat
+              {mode === "Viewer Mode" ? "Live Viewer Chat" : "Native Market Bubble Chat"}
             </p>
             <h2 className="mt-1 text-2xl font-black">Combined Chat</h2>
             <p className="text-sm text-white/40">
-              Specific source labels show exactly where every message came from.
+              {mode === "Viewer Mode"
+                ? "Watch and chat with the full Market Bubble audience in one room."
+                : "Specific source labels show exactly where every message came from."}
             </p>
 
-            {showViralAlert && (
-              <div className="my-4 rounded-2xl border border-orange-400/30 bg-orange-400/10 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-200">
-                  Viral Alert
-                </p>
-                <p className="mt-1 font-black">“CLIP IT” spike detected</p>
-                <p className="mt-1 text-sm text-orange-100/60">
-                  {momentConfidence}% confidence
-                </p>
-              </div>
-            )}
-
             <div className="mt-4 flex flex-wrap gap-2">
-              {(["All", "Twitch", "Kick", "X"] as const).map((source) => (
+              {(["All", "Twitch", "Kick", "X", "YouTube"] as const).map((source) => (
                 <button
                   key={source}
                   onClick={() => setSelectedSource(source)}
@@ -381,26 +560,55 @@ export default function Home() {
           </div>
 
           <div className="flex-1 space-y-3 overflow-y-auto p-5">
-            {visibleMessages.map((message, index) => (
-              <div
-                key={`${message.user}-${message.text}-${index}`}
-                className="rounded-2xl border border-white/10 bg-black/35 p-4 transition hover:border-white/25 hover:bg-white/[0.06]"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-black ${platformStyle(
-                      message.source
-                    )}`}
+            {visibleFeedItems.map((item) => {
+              if (item.type === "moment") {
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-orange-400/40 bg-orange-400/10 p-4 shadow-lg"
                   >
-                    {message.source}
-                  </span>
-                  <span className="text-sm font-semibold text-white/45">
-                    @{message.user}
-                  </span>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="rounded-full border border-orange-300/30 bg-orange-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-orange-200">
+                        AI Moment
+                      </span>
+                      <span className="text-xs text-orange-100/50">
+                        Cooldown protected
+                      </span>
+                    </div>
+
+                    <p className="text-lg font-black">🔥 “{item.phrase}” spike detected</p>
+                    <p className="mt-2 text-sm leading-6 text-orange-100/70">
+                      {item.mentions} mentions across {item.sources.join(", ")} • {item.confidence}% confidence
+                    </p>
+
+                    <button className="mt-4 w-full rounded-xl border border-orange-200/20 bg-black/25 px-4 py-3 text-left text-sm font-bold text-orange-100 transition hover:bg-orange-200/10">
+                      Generate Clip from last 30 seconds
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-white/10 bg-black/35 p-4 transition hover:border-white/25 hover:bg-white/[0.06]"
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-black ${platformStyle(
+                        item.source
+                      )}`}
+                    >
+                      {item.source}
+                    </span>
+                    <span className="text-sm font-semibold text-white/45">
+                      @{item.user}
+                    </span>
+                  </div>
+                  <p className="text-base leading-6">{item.text}</p>
                 </div>
-                <p className="text-base leading-6">{message.text}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </aside>
       </section>
@@ -427,6 +635,7 @@ function WaitingStream({ platform }: { platform: StreamPlatform }) {
 function platformStyle(source: Source) {
   if (source === "Kick") return "border-green-400/40 bg-green-400/10 text-green-300";
   if (source === "Twitch") return "border-purple-400/40 bg-purple-400/10 text-purple-300";
+  if (source === "YouTube") return "border-red-400/40 bg-red-400/10 text-red-300";
   return "border-white/20 bg-white/10 text-white";
 }
 
@@ -496,5 +705,34 @@ function Action({ title, subtitle }: { title: string; subtitle: string }) {
       <p className="font-black">{title}</p>
       <p className="mt-1 text-sm text-white/40">{subtitle}</p>
     </button>
+  );
+}
+
+function SourceStatus({
+  label,
+  status,
+  viewers,
+}: {
+  label: Source;
+  status: "Live" | "Waiting";
+  viewers: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className={`rounded-full border px-3 py-1 text-xs font-black ${platformStyle(label)}`}>
+          {label}
+        </span>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-bold ${
+            status === "Live" ? "bg-green-400/10 text-green-300" : "bg-white/10 text-white/40"
+          }`}
+        >
+          {status}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-black">{viewers}</p>
+      <p className="text-sm text-white/40">viewers</p>
+    </div>
   );
 }
