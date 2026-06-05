@@ -323,32 +323,32 @@ export default function Home() {
 
           {mode === "Viewer Mode" ? (
             <>
-              <section className="border-b border-white/10 p-6">
-                <div className="grid gap-4 xl:grid-cols-3">
-                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <section className="border-b border-white/10 p-5">
+                <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-white/35">
                       Watching Together
                     </p>
-                    <h2 className="mt-3 text-5xl font-black">
+                    <h2 className="mt-3 text-4xl font-black">
                       {totalViewers.toLocaleString()}
                     </h2>
-                    <p className="mt-2 text-white/45">combined viewers live right now</p>
+                    <p className="mt-2 text-sm text-white/45">combined viewers live right now</p>
                   </div>
 
-                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 xl:col-span-2">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-white/35">
                       Viewer Mode
                     </p>
                     <h2 className="mt-3 text-3xl font-black">One stream. One chat. Every platform.</h2>
                     <p className="mt-3 text-sm leading-6 text-white/50">
-                      Viewer Mode removes the heavy creator analytics and focuses on the watch experience:
-                      stream player, combined audience count, and the native Market Bubble chat.
+                      A cleaner watch page for the audience: stream player, combined viewer count,
+                      source-labeled chat, and shared moments without the heavy creator controls.
                     </p>
                   </div>
                 </div>
               </section>
 
-              <section className="grid gap-6 p-6 xl:grid-cols-3">
+              <section className="grid gap-5 p-5 xl:grid-cols-3">
                 <Panel title="Live Sources">
                   <SourceStatus label="Twitch" status="Live" viewers="4,812" />
                   <SourceStatus label="Kick" status="Live" viewers="2,101" />
@@ -371,8 +371,8 @@ export default function Home() {
 
                 <Panel title="Join The Room">
                   <Action title="Open Native Chat" subtitle="Chat with viewers across every source" />
-                  <Action title="Follow Moment" subtitle="Track the current viral topic" />
-                  <Action title="Switch Source" subtitle="Change stream source above" />
+                  <Action title="Save Moment" subtitle="Mark the current highlight" />
+                  <Action title="Switch Source" subtitle="Change the stream source above" />
                 </Panel>
               </section>
             </>
@@ -519,11 +519,12 @@ export default function Home() {
                   <Action title="Pin Topic" subtitle="Banks moment is trending" />
                 </Panel>
 
-                <Panel title="Active Mode">
-                  <p className="text-2xl font-black">{mode}</p>
-                  <p className="mt-3 text-sm leading-6 text-white/55">
-                    Monitor combined viewers, viral spikes, source labels, and top chatters from one control room.
-                  </p>
+                <Panel title="What This Proves">
+                  <ProofLine text="One combined chat across platforms" />
+                  <ProofLine text="One combined viewer count" />
+                  <ProofLine text="Source-labeled messages" />
+                  <ProofLine text="Creator dashboard + viewer mode" />
+                  <ProofLine text="AI moments inside the chat feed" />
                 </Panel>
               </section>
             </>
@@ -582,7 +583,7 @@ export default function Home() {
                     </p>
 
                     <button className="mt-4 w-full rounded-xl border border-orange-200/20 bg-black/25 px-4 py-3 text-left text-sm font-bold text-orange-100 transition hover:bg-orange-200/10">
-                      Generate Clip from last 30 seconds
+                      {mode === "Viewer Mode" ? "Save Moment" : "Generate Clip from last 30 seconds"}
                     </button>
                   </div>
                 );
@@ -733,6 +734,14 @@ function SourceStatus({
       </div>
       <p className="mt-3 text-2xl font-black">{viewers}</p>
       <p className="text-sm text-white/40">viewers</p>
+    </div>
+  );
+}
+
+function ProofLine({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-bold text-white/70">
+      ✓ {text}
     </div>
   );
 }
