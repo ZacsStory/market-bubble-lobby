@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Source = "Twitch" | "Kick" | "X";
-type StreamPlatform = "Twitch" | "Kick" | "YouTube";
+type StreamPlatform = "Twitch" | "Kick" | "X" | "YouTube";
 type Mode = "Creator Dashboard" | "Viewer Mode";
 
 type Message = {
@@ -39,6 +39,7 @@ const totalViewers =
 const streamUrls: Record<StreamPlatform, string | null> = {
   Twitch: "https://player.twitch.tv/?channel=fazebanks&parent=localhost&muted=true",
   Kick: null,
+  X: null,
   YouTube: null,
 };
 
@@ -63,7 +64,7 @@ export default function Home() {
     () =>
       messages.filter((message) => {
         const text = message.text.toLowerCase();
-        return text.includes("no way") || text.includes("viral") || text.includes("huge");
+        return text.includes("no way") || text.includes("viral") || text.includes("huge") || text.includes("crazy");
       }).length,
     [messages]
   );
@@ -86,95 +87,47 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#050508] text-white">
-      <header className="border-b border-white/10 px-6 py-5">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-white/35">
-              MarketBubble.com Native Experience
-            </p>
-            <h1 className="mt-1 text-3xl font-black md:text-5xl">
-              Market Bubble Lobby
-            </h1>
-            <p className="mt-1 text-sm text-white/50">
-              Watch the stream, see every viewer, and read one combined chat from Twitch, Kick, and X.
-            </p>
-          </div>
+      <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.4em] text-white/35">
+            MarketBubble.com Native Experience
+          </p>
+          <h1 className="text-3xl font-black md:text-4xl">Market Bubble Lobby</h1>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {(["Creator Dashboard", "Viewer Mode"] as Mode[]).map((item) => (
-              <button
-                key={item}
-                onClick={() => setMode(item)}
-                className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                  mode === item
-                    ? "border-white bg-white text-black"
-                    : "border-white/10 bg-white/[0.04] text-white/60 hover:text-white"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center gap-3">
+          {(["Creator Dashboard", "Viewer Mode"] as Mode[]).map((item) => (
+            <button
+              key={item}
+              onClick={() => setMode(item)}
+              className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                mode === item
+                  ? "border-white bg-white text-black"
+                  : "border-white/10 bg-white/[0.04] text-white/60 hover:text-white"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
 
-            <div className="flex items-center gap-2 rounded-full border border-green-400/40 bg-green-400/10 px-4 py-2 text-sm font-bold text-green-300">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-green-300" />
-              LIVE
-            </div>
+          <div className="flex items-center gap-2 rounded-full border border-green-400/40 bg-green-400/10 px-4 py-2 text-sm font-bold text-green-300">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-green-300" />
+            LIVE
           </div>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1600px] gap-0 lg:grid-cols-[1fr_440px]">
-        <div className="min-w-0">
-          <section className="grid gap-4 border-b border-white/10 p-6 xl:grid-cols-[1.4fr_1fr]">
-            <div className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] p-6">
-              <p className="text-xs uppercase tracking-[0.35em] text-white/35">
-                Combined Audience
-              </p>
-              <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="text-6xl font-black md:text-7xl">
-                    {totalViewers.toLocaleString()}
-                  </p>
-                  <p className="mt-2 text-white/50">viewers across all sources</p>
-                </div>
-
-                <div className="rounded-3xl border border-orange-400/30 bg-orange-400/10 px-5 py-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-orange-200/70">
-                    Native Chat
-                  </p>
-                  <p className="mt-1 text-xl font-black">MarketBubble.com</p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
-                <ViewerSource label="Twitch" value={viewerBreakdown.Twitch} />
-                <ViewerSource label="Kick" value={viewerBreakdown.Kick} />
-                <ViewerSource label="X" value={viewerBreakdown.X} />
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6">
-              <p className="text-xs uppercase tracking-[0.35em] text-white/35">
-                Active Mode
-              </p>
-              <h2 className="mt-3 text-3xl font-black">{mode}</h2>
-              <p className="mt-3 leading-7 text-white/55">
-                {mode === "Creator Dashboard"
-                  ? "Built for Banks and Z to monitor the entire audience, combined viewers, viral spikes, and source-labeled chat from one control room."
-                  : "Built for viewers who want to watch the stream and participate in the combined Market Bubble chat without opening every platform."}
-              </p>
-            </div>
-          </section>
-
-          <section className="border-b border-white/10 p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <section className="grid min-h-[calc(100vh-73px)] lg:grid-cols-[1fr_440px]">
+        <div className="flex flex-col">
+          <div className="border-b border-white/10 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-white/40">Now Watching</p>
                 <h2 className="text-2xl font-black">FaZe Banks Live</h2>
               </div>
 
-              <div className="flex gap-2">
-                {(["Twitch", "Kick", "YouTube"] as StreamPlatform[]).map((platform) => (
+              <div className="flex flex-wrap gap-2">
+                {(["Twitch", "Kick", "X", "YouTube"] as StreamPlatform[]).map((platform) => (
                   <button
                     key={platform}
                     onClick={() => setSelectedStream(platform)}
@@ -189,87 +142,101 @@ export default function Home() {
                 ))}
               </div>
             </div>
+          </div>
 
-            <div className="relative flex aspect-video min-h-[420px] items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-black">
-              {streamUrls[selectedStream] ? (
-                <iframe
-                  key={selectedStream}
-                  src={streamUrls[selectedStream] as string}
-                  className="absolute inset-0 h-full w-full"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <WaitingStream platform={selectedStream} />
-              )}
+          <div className="relative flex aspect-video min-h-[520px] items-center justify-center overflow-hidden bg-black">
+            {streamUrls[selectedStream] ? (
+              <iframe
+                key={selectedStream}
+                src={streamUrls[selectedStream] as string}
+                className="absolute inset-0 h-full w-full"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <WaitingStream platform={selectedStream} />
+            )}
 
-              <div className="pointer-events-none absolute left-6 top-6 flex items-center gap-3">
-                <div className="rounded-full bg-red-600 px-4 py-2 text-xs font-black">
-                  LIVE STREAM
-                </div>
-                <div className="rounded-full bg-black/70 px-4 py-2 text-sm text-white/80">
-                  {totalViewers.toLocaleString()} combined viewers
-                </div>
+            <div className="pointer-events-none absolute left-6 top-6 flex items-center gap-3">
+              <div className="rounded-full bg-red-600 px-4 py-2 text-xs font-black">
+                LIVE STREAM
               </div>
+              <div className="rounded-full bg-black/70 px-4 py-2 text-sm text-white/80">
+                {totalViewers.toLocaleString()} combined viewers
+              </div>
+            </div>
 
-              {showViralAlert && (
-                <div className="absolute bottom-6 left-6 right-6 rounded-3xl border border-orange-400/40 bg-orange-500/20 p-5 shadow-2xl backdrop-blur-md">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.3em] text-orange-200">
-                        🔥 Viral Moment Detected
-                      </p>
-                      <h3 className="mt-2 text-3xl font-black">“CLIP IT” is spiking</h3>
-                      <p className="mt-1 text-sm text-orange-100/70">
-                        {clipMentions * 6} mentions across Twitch, Kick, and X in the last 30 seconds.
-                      </p>
-                    </div>
+            {showViralAlert && (
+              <div className="absolute bottom-6 left-6 right-6 rounded-3xl border border-orange-400/40 bg-orange-500/20 p-5 shadow-2xl backdrop-blur-md">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.3em] text-orange-200">
+                      🔥 Viral Moment Detected
+                    </p>
+                    <h3 className="mt-2 text-3xl font-black">“CLIP IT” is spiking</h3>
+                    <p className="mt-1 text-sm text-orange-100/70">
+                      {clipMentions * 6} mentions across Twitch, Kick, and X in the last 30 seconds.
+                    </p>
+                  </div>
 
-                    <div className="rounded-2xl border border-orange-300/30 bg-black/35 px-5 py-4 text-center">
-                      <p className="text-sm text-orange-100/60">Confidence</p>
-                      <p className="text-3xl font-black">{momentConfidence}%</p>
-                    </div>
+                  <div className="rounded-2xl border border-orange-300/30 bg-black/35 px-5 py-4 text-center">
+                    <p className="text-sm text-orange-100/60">Confidence</p>
+                    <p className="text-3xl font-black">{momentConfidence}%</p>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
+
+          <section className="grid gap-4 border-y border-white/10 p-6 xl:grid-cols-4">
+            <Stat label="Combined Viewers" value={totalViewers.toLocaleString()} />
+            <Stat label="Twitch" value={viewerBreakdown.Twitch.toLocaleString()} />
+            <Stat label="Kick" value={viewerBreakdown.Kick.toLocaleString()} />
+            <Stat label="X" value={viewerBreakdown.X.toLocaleString()} />
           </section>
 
-          <section className="grid gap-6 p-6 xl:grid-cols-3">
+          <section className="grid gap-6 p-6 xl:grid-cols-[1fr_1fr_1fr_1fr]">
             <Panel title="Audience Pulse">
               <Pulse label="Twitch" value="58%" width="58%" color="bg-purple-500" />
               <Pulse label="Kick" value="34%" width="34%" color="bg-green-500" />
               <Pulse label="X" value="8%" width="8%" color="bg-white" />
             </Panel>
 
-            <Panel title="🔥 AI Moments">
-              <Moment phrase="CLIP IT" count={`${clipMentions * 6} mentions detected`} hot />
-              <Moment phrase="NO WAY / VIRAL" count={`${hypeMentions * 5} emotion spike`} />
-              <Moment phrase="Clip Probability" count={`${momentConfidence}% likely viral moment`} />
+            <Panel title="🔥 AI Moment Timeline">
+              <Timeline time="12:04" title="CLIP IT spike" subtitle={`${clipMentions * 6} mentions`} />
+              <Timeline time="12:06" title="NO WAY surge" subtitle={`${hypeMentions * 5} reactions`} />
+              <Timeline time="12:09" title="Viewer surge" subtitle="+312 viewers" />
             </Panel>
 
             <Panel title="Creator Actions">
               <Action title="Generate Clip" subtitle="Create highlight from last 30 sec" />
+              <Action title="Create Poll" subtitle="Ask Twitch, Kick, and X at once" />
               <Action title="Pin Topic" subtitle="Banks moment is trending" />
-              <Action title="Ask Poll" subtitle="Send poll across all platforms" />
+            </Panel>
+
+            <Panel title="Active Mode">
+              <p className="text-2xl font-black">{mode}</p>
+              <p className="mt-3 text-sm leading-6 text-white/55">
+                {mode === "Creator Dashboard"
+                  ? "Monitor the entire audience, combined viewers, viral spikes, and source-labeled chat from one control room."
+                  : "Watch the stream and participate in the combined Market Bubble chat without opening every platform."}
+              </p>
             </Panel>
           </section>
         </div>
 
         <aside className="border-l border-white/10 bg-[#08080d]">
           <div className="border-b border-white/10 p-5">
-            <div className="mb-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-white/35">
-                Native Market Bubble Chat
-              </p>
-              <h2 className="mt-1 text-2xl font-black">Combined Chat</h2>
-              <p className="text-sm text-white/40">
-                Specific source labels show exactly where every message came from.
-              </p>
-            </div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+              Native Market Bubble Chat
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Combined Chat</h2>
+            <p className="text-sm text-white/40">
+              Specific source labels show exactly where every message came from.
+            </p>
 
             {showViralAlert && (
-              <div className="mb-4 rounded-2xl border border-orange-400/30 bg-orange-400/10 p-4">
+              <div className="my-4 rounded-2xl border border-orange-400/30 bg-orange-400/10 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-200">
                   Viral Alert
                 </p>
@@ -280,7 +247,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {(["All", "Twitch", "Kick", "X"] as const).map((source) => (
                 <button
                   key={source}
@@ -297,7 +264,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="h-[calc(100vh-270px)] space-y-3 overflow-y-auto p-5">
+          <div className="h-[calc(100vh-290px)] space-y-3 overflow-y-auto p-5">
             {visibleMessages.map((message, index) => (
               <div
                 key={`${message.user}-${message.text}-${index}`}
@@ -347,11 +314,11 @@ function platformStyle(source: Source) {
   return "border-white/20 bg-white/10 text-white";
 }
 
-function ViewerSource({ label, value }: { label: Source; value: number }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`rounded-3xl border p-4 ${platformStyle(label)}`}>
-      <p className="text-sm opacity-80">{label}</p>
-      <p className="mt-1 text-3xl font-black">{value.toLocaleString()}</p>
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-sm text-white/40">{label}</p>
+      <p className="mt-1 text-3xl font-black">{value}</p>
     </div>
   );
 }
@@ -389,25 +356,20 @@ function Pulse({
   );
 }
 
-function Moment({
-  phrase,
-  count,
-  hot,
+function Timeline({
+  time,
+  title,
+  subtitle,
 }: {
-  phrase: string;
-  count: string;
-  hot?: boolean;
+  time: string;
+  title: string;
+  subtitle: string;
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        hot
-          ? "border-orange-400/40 bg-orange-400/15"
-          : "border-orange-400/20 bg-orange-400/10"
-      }`}
-    >
-      <p className="font-black">“{phrase}”</p>
-      <p className="mt-1 text-sm text-orange-100/60">{count}</p>
+    <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4">
+      <p className="text-xs text-orange-100/50">{time}</p>
+      <p className="mt-1 font-black">{title}</p>
+      <p className="mt-1 text-sm text-orange-100/60">{subtitle}</p>
     </div>
   );
 }
